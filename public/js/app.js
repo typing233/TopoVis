@@ -619,7 +619,7 @@ class TopoVisApp {
                         isHighlighted = true;
                         opacity = 1.0;
                     } else {
-                        opacity = 0.3;
+                        opacity = 0.6;
                     }
                 }
                 
@@ -678,7 +678,7 @@ class TopoVisApp {
                         color = '#fbbf24';
                     }
                 } else {
-                    opacity = 0.4;
+                    opacity = 0.7;
                 }
             }
             
