@@ -612,20 +612,20 @@ class TopoVisApp {
                 const ty = link.target.y * transform.scale + transform.translateY;
                 
                 let isHighlighted = false;
-                let opacity = 0.3;
+                let opacity = 0.7;
                 
                 if (this.selectedNode) {
                     if (this.highlightedEdges.has(link)) {
                         isHighlighted = true;
                         opacity = 1.0;
                     } else {
-                        opacity = 0.05;
+                        opacity = 0.3;
                     }
                 }
                 
                 const edgeColor = isHighlighted ? 
                     this.parseColor('#fbbf24', opacity) : 
-                    this.parseColor('#94a3b8', opacity);
+                    this.parseColor('#64748b', opacity);
                 
                 positions.push(sx, sy, tx, ty);
                 colors.push(...edgeColor, ...edgeColor);
@@ -678,7 +678,7 @@ class TopoVisApp {
                         color = '#fbbf24';
                     }
                 } else {
-                    opacity = 0.1;
+                    opacity = 0.4;
                 }
             }
             

@@ -227,7 +227,7 @@ class LouvainCommunityDetection {
 
   _getCommunities() {
     const communityMap = {};
-    const finalCommunities = [];
+    const finalCommunities = {};
     
     for (let i = 0; i < this.nodes.length; i++) {
       const node = this.nodes[i];
@@ -349,12 +349,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
     
     const louvain = new LouvainCommunityDetection(graph);
-    const communities = louvain.detect();
-    
-    const nodeCommunities = {};
-    graph.nodes.forEach((node, idx) => {
-      nodeCommunities[node.id] = communities[idx];
-    });
+    const nodeCommunities = louvain.detect();
     
     const result = {
       nodes: graph.nodes.map(node => ({
