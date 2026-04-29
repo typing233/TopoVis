@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TopoVis - 大规模图可视化系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1>TopoVis - 大规模图可视化系统</h1>
+            <div class="header-controls">
+                <button id="btn-settings" class="btn btn-secondary">
+                    <span>⚙️ LLM配置</span>
+                </button>
+            </div>
+        </header>
+        
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>数据导入</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="upload-area" id="upload-area">
+                            <div class="upload-icon">📁</div>
+                            <p>拖拽文件到此处或点击选择</p>
+                            <p class="upload-hint">支持格式: CSV, JSON</p>
+                            <input type="file" id="file-input" accept=".csv,.json" style="display: none;">
+                            <button id="btn-select-file" class="btn btn-primary">选择文件</button>
+                        </div>
+                        <div id="file-info" class="file-info" style="display: none;">
+                            <div class="file-name" id="file-name"></div>
+                            <button id="btn-remove-file" class="btn btn-small btn-danger">移除</button>
+                        </div>
+                        <button id="btn-upload" class="btn btn-primary btn-block" disabled>
+                            上传并分析
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="panel" id="statistics-panel" style="display: none;">
+                    <div class="panel-header">
+                        <h3>统计信息</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="stat-item">
+                            <span class="stat-label">节点数量:</span>
+                            <span class="stat-value" id="stat-nodes">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">边数量:</span>
+                            <span class="stat-value" id="stat-edges">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">社区数量:</span>
+                            <span class="stat-value" id="stat-communities">0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel" id="community-panel" style="display: none;">
+                    <div class="panel-header">
+                        <h3>社区列表</h3>
+                    </div>
+                    <div class="panel-body" id="community-list">
+                    </div>
+                </div>
+                
+                <div class="panel" id="node-info-panel" style="display: none;">
+                    <div class="panel-header">
+                        <h3>节点信息</h3>
+                        <button id="btn-close-node" class="btn btn-small btn-secondary">×</button>
+                    </div>
+                    <div class="panel-body" id="node-info-content">
+                    </div>
+                </div>
+                
+                <div class="panel" id="llm-panel" style="display: none;">
+                    <div class="panel-header">
+                        <h3>LLM 智能分析</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>输入分析问题:</label>
+                            <textarea id="llm-prompt" rows="3" placeholder="例如: 分析这个网络的社区结构..."></textarea>
+                        </div>
+                        <button id="btn-llm-analyze" class="btn btn-primary btn-block" disabled>
+                            智能分析
+                        </button>
+                        <div id="llm-result" class="llm-result" style="display: none;"></div>
+                    </div>
+                </div>
+            </aside>
+            
+            <main class="graph-container">
+                <div class="toolbar">
+                    <div class="toolbar-group">
+                        <button id="btn-zoom-in" class="btn btn-tool" title="放大">➕</button>
+                        <button id="btn-zoom-out" class="btn btn-tool" title="缩小">➖</button>
+                        <button id="btn-zoom-reset" class="btn btn-tool" title="重置视图">🔄</button>
+                        <div class="separator"></div>
+                        <button id="btn-pause" class="btn btn-tool" title="暂停/继续模拟">⏸️</button>
+                        <button id="btn-center" class="btn btn-tool" title="居中视图">🎯</button>
+                    </div>
+                    <div class="toolbar-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="toggle-labels" checked>
+                            <span>显示标签</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="toggle-edges" checked>
+                            <span>显示边</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="graph-canvas" id="graph-canvas">
+                    <canvas id="gl-canvas"></canvas>
+                    <svg id="overlay-svg" class="overlay-svg"></svg>
+                    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+                        <div class="loading-spinner"></div>
+                        <p>正在处理数据...</p>
+                    </div>
+                    <div id="welcome-message" class="welcome-message">
+                        <h2>欢迎使用 TopoVis</h2>
+                        <p>请上传图数据文件开始探索</p>
+                        <p class="hint">支持 CSV (source, target) 和 JSON 格式</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <div id="settings-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>LLM API 配置</h3>
+                <button id="btn-close-modal" class="btn btn-small btn-secondary">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="setting-baseurl">Base URL *</label>
+                    <input type="text" id="setting-baseurl" placeholder="https://api.openai.com/v1">
+                    <p class="form-hint">OpenAI 兼容的 API 端点地址</p>
+                </div>
+                <div class="form-group">
+                    <label for="setting-apikey">API Key *</label>
+                    <input type="password" id="setting-apikey" placeholder="sk-...">
+                    <p class="form-hint">您的 API 密钥</p>
+                </div>
+                <div class="form-group">
+                    <label for="setting-model">Model Name</label>
+                    <input type="text" id="setting-model" placeholder="gpt-3.5-turbo">
+                    <p class="form-hint">模型名称 (可选, 默认 gpt-3.5-turbo)</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-test-connection" class="btn btn-secondary">测试连接</button>
+                <button id="btn-save-settings" class="btn btn-primary">保存配置</button>
+            </div>
+            <div id="test-result" class="test-result" style="display: none;"></div>
+        </div>
+    </div>
+    
+    <script src="js/app.js"></script>
+</body>
+</html>

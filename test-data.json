@@ -1,0 +1,53 @@
+{
+  "nodes": [
+    {"id": "A", "properties": {"name": "Alice", "age": 25}},
+    {"id": "B", "properties": {"name": "Bob", "age": 30}},
+    {"id": "C", "properties": {"name": "Charlie", "age": 35}},
+    {"id": "D", "properties": {"name": "Diana", "age": 28}},
+    {"id": "E", "properties": {"name": "Edward", "age": 32}},
+    {"id": "F", "properties": {"name": "Frank", "age": 27}},
+    {"id": "G", "properties": {"name": "Grace", "age": 29}},
+    {"id": "H", "properties": {"name": "Henry", "age": 31}},
+    {"id": "I", "properties": {"name": "Ivy", "age": 26}},
+    {"id": "J", "properties": {"name": "Jack", "age": 33}},
+    {"id": "K", "properties": {"name": "Kate", "age": 24}},
+    {"id": "L", "properties": {"name": "Leo", "age": 36}},
+    {"id": "M", "properties": {"name": "Maya", "age": 23}},
+    {"id": "N", "properties": {"name": "Nick", "age": 34}},
+    {"id": "O", "properties": {"name": "Olivia", "age": 22}},
+    {"id": "P", "properties": {"name": "Paul", "age": 38}}
+  ],
+  "links": [
+    {"source": "A", "target": "B", "weight": 1},
+    {"source": "A", "target": "C", "weight": 1},
+    {"source": "B", "target": "C", "weight": 1},
+    {"source": "A", "target": "D", "weight": 1},
+    {"source": "B", "target": "D", "weight": 1},
+    {"source": "C", "target": "D", "weight": 1},
+    
+    {"source": "E", "target": "F", "weight": 1},
+    {"source": "E", "target": "G", "weight": 1},
+    {"source": "F", "target": "G", "weight": 1},
+    {"source": "E", "target": "H", "weight": 1},
+    {"source": "F", "target": "H", "weight": 1},
+    {"source": "G", "target": "H", "weight": 1},
+    
+    {"source": "I", "target": "J", "weight": 1},
+    {"source": "I", "target": "K", "weight": 1},
+    {"source": "J", "target": "K", "weight": 1},
+    {"source": "I", "target": "L", "weight": 1},
+    {"source": "J", "target": "L", "weight": 1},
+    {"source": "K", "target": "L", "weight": 1},
+    
+    {"source": "M", "target": "N", "weight": 1},
+    {"source": "M", "target": "O", "weight": 1},
+    {"source": "N", "target": "O", "weight": 1},
+    {"source": "M", "target": "P", "weight": 1},
+    {"source": "N", "target": "P", "weight": 1},
+    {"source": "O", "target": "P", "weight": 1},
+    
+    {"source": "D", "target": "E", "weight": 0.5},
+    {"source": "H", "target": "I", "weight": 0.5},
+    {"source": "L", "target": "M", "weight": 0.5}
+  ]
+}
