@@ -539,6 +539,8 @@ class TopoVisApp {
             }
         });
         
+        this.graphData.links = this.graphData.links.filter(link => link.source && link.target);
+        
         this.adjacencyList = new Map();
         this.graphData.nodes.forEach(node => {
             this.adjacencyList.set(node.id, []);
@@ -829,11 +831,11 @@ class TopoVisApp {
         let html = `
             <div class="node-property">
                 <div class="node-property-key">ID</div>
-                <div class="node-property-value">${node.id}</div>
+                <div class="node-property-value">${this.escapeHTML(node.id)}</div>
             </div>
             <div class="node-property">
                 <div class="node-property-key">Community</div>
-                <div class="node-property-value">${node.community}</div>
+                <div class="node-property-value">${this.escapeHTML(node.community)}</div>
             </div>
             <div class="node-property">
                 <div class="node-property-key">Degree</div>
@@ -845,8 +847,8 @@ class TopoVisApp {
             Object.keys(node.properties).forEach(key => {
                 html += `
                     <div class="node-property">
-                        <div class="node-property-key">${key}</div>
-                        <div class="node-property-value">${node.properties[key]}</div>
+                        <div class="node-property-key">${this.escapeHTML(key)}</div>
+                        <div class="node-property-value">${this.escapeHTML(node.properties[key])}</div>
                     </div>
                 `;
             });
@@ -897,7 +899,8 @@ class TopoVisApp {
         if (!this.hiddenData) {
             this.hiddenData = {
                 nodes: [...originalNodes],
-                links: [...originalLinks]
+                links: [...originalLinks],
+                statistics: { ...this.graphData.statistics }
             };
         }
         
@@ -918,6 +921,43 @@ class TopoVisApp {
         };
         
         this.showStatistics();
+        this.showDrillDownBar();
+        
+        if (this.simulation) {
+            this.simulation.stop();
+        }
+        
+        this.initializeGraph();
+        this.centerView();
+        this.hideNodeInfo();
+    }
+    
+    showDrillDownBar() {
+        let bar = document.getElementById('drill-down-bar');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'drill-down-bar';
+            bar.className = 'drill-down-bar';
+            bar.innerHTML = '<span>局部视图模式</span>' +
+                '<button id="btn-restore-graph" class="btn-restore-graph">返回全图</button>';
+            document.getElementById('graph-canvas').appendChild(bar);
+            document.getElementById('btn-restore-graph').addEventListener('click', () => this.restoreFullGraph());
+        }
+    }
+    
+    restoreFullGraph() {
+        if (!this.hiddenData) return;
+        
+        this.graphData.nodes = this.hiddenData.nodes;
+        this.graphData.links = this.hiddenData.links;
+        this.graphData.statistics = this.hiddenData.statistics;
+        this.hiddenData = null;
+        
+        const bar = document.getElementById('drill-down-bar');
+        if (bar) bar.remove();
+        
+        this.showStatistics();
+        this.showCommunityList();
         
         if (this.simulation) {
             this.simulation.stop();
@@ -970,9 +1010,9 @@ class TopoVisApp {
             const count = communityCounts[comm];
             
             html += `
-                <div class="community-item" data-community="${comm}">
+                <div class="community-item" data-community="${this.escapeHTML(comm)}">
                     <div class="community-color" style="background-color: ${color}"></div>
-                    <div class="community-name">Community ${comm}</div>
+                    <div class="community-name">Community ${this.escapeHTML(comm)}</div>
                     <div class="community-count">${count} 节点</div>
                 </div>
             `;
@@ -1002,6 +1042,7 @@ class TopoVisApp {
         });
         
         this.selectedNode = null;
+        document.getElementById('node-info-panel').style.display = 'none';
         
         this.graphData.links.forEach(link => {
             if (!link.source || !link.target) return;
@@ -1154,10 +1195,20 @@ class TopoVisApp {
     }
     
     formatMarkdown(text) {
-        return text
+        const escaped = this.escapeHTML(text);
+        return escaped
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
             .replace(/\n/g, '<br>');
+    }
+
+    escapeHTML(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 }
 

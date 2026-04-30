@@ -22,7 +22,8 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
+    const sanitizedName = path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, uniqueSuffix + '-' + sanitizedName);
   }
 });
 
@@ -331,6 +332,7 @@ async function parseGraphFile(filepath, extension) {
 }
 
 app.post('/api/upload', upload.single('file'), async (req, res) => {
+  const filePath = req.file ? req.file.path : null;
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -338,13 +340,14 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     
     const ext = path.extname(req.file.originalname).toLowerCase();
     if (!['.csv', '.json'].includes(ext)) {
-      await fs.remove(req.file.path);
+      await fs.remove(filePath);
       return res.status(400).json({ error: 'Unsupported file format. Please use CSV or JSON.' });
     }
     
-    const graph = await parseGraphFile(req.file.path, ext);
+    const graph = await parseGraphFile(filePath, ext);
     
     if (!graph.nodes || graph.nodes.length === 0) {
+      await fs.remove(filePath);
       return res.status(400).json({ error: 'No nodes found in the file' });
     }
     
@@ -364,14 +367,29 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       }
     };
     
-    await fs.remove(req.file.path);
+    await fs.remove(filePath);
     res.json(result);
     
   } catch (error) {
     console.error('Error processing file:', error);
+    if (filePath) {
+      await fs.remove(filePath).catch(() => {});
+    }
     res.status(500).json({ error: 'Error processing file: ' + error.message });
   }
 });
+
+function validateBaseUrl(baseUrl) {
+  try {
+    const url = new URL(baseUrl);
+    if (!['https:', 'http:'].includes(url.protocol)) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 app.post('/api/llm/test', async (req, res) => {
   try {
@@ -379,6 +397,10 @@ app.post('/api/llm/test', async (req, res) => {
     
     if (!baseUrl || !apiKey) {
       return res.status(400).json({ error: 'Base URL and API Key are required' });
+    }
+    
+    if (!validateBaseUrl(baseUrl)) {
+      return res.status(400).json({ error: 'Invalid Base URL format' });
     }
     
     const model = modelName || 'gpt-3.5-turbo';
@@ -427,6 +449,18 @@ app.post('/api/llm/analyze', async (req, res) => {
     
     if (!baseUrl || !apiKey) {
       return res.status(400).json({ error: 'Base URL and API Key are required' });
+    }
+    
+    if (!validateBaseUrl(baseUrl)) {
+      return res.status(400).json({ error: 'Invalid Base URL format' });
+    }
+    
+    if (!graphData) {
+      return res.status(400).json({ error: 'Graph data is required' });
+    }
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
     }
     
     const model = modelName || 'gpt-3.5-turbo';
