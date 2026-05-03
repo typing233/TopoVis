@@ -806,19 +806,23 @@ class Physics3DEngine {
         this.renderer = new THREE.WebGLRenderer({
             canvas: document.getElementById('three-canvas'),
             antialias: true,
-            alpha: true,
-            powerPreference: 'high-performance'
+            alpha: true
         });
         this.renderer.setSize(width, height);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.2;
     }
     
     createControls() {
-        this.controls = new THREE.OrbitControls(
+        const OrbitControls = THREE.OrbitControls || window.OrbitControls || window.THREE?.OrbitControls;
+        
+        if (!OrbitControls) {
+            console.error('OrbitControls is not available');
+            return;
+        }
+        
+        this.controls = new OrbitControls(
             this.camera,
             this.renderer.domElement
         );
