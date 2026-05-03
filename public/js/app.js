@@ -14,6 +14,11 @@ class TopoVisApp {
         this.llmConfig = this.loadLLMConfig();
         this.communityColors = {};
         
+        this.is3DMode = true;
+        this.physics3D = null;
+        this.timelineManager = null;
+        this.destructionMode = null;
+        
         this.colorScale = d3.scaleOrdinal()
             .range([
                 '#ef4444', '#f97316', '#eab308', '#22c55e', 
@@ -28,9 +33,34 @@ class TopoVisApp {
     init() {
         this.canvas = document.getElementById('gl-canvas');
         this.svg = d3.select('#overlay-svg');
+        
         this.setupCanvas();
         this.setupWebGL();
+        this.init3DEngine();
         this.setupEventListeners();
+    }
+    
+    init3DEngine() {
+        const container = document.getElementById('three-canvas-container');
+        if (container && typeof Physics3DEngine !== 'undefined') {
+            this.physics3D = new Physics3DEngine(container);
+            
+            this.physics3D.onNodeClick = (nodeId, nodeData) => {
+                this.handle3DNodeClick(nodeId, nodeData);
+            };
+            
+            this.physics3D.onNodeHover = (nodeId, nodeData) => {
+                this.handle3DNodeHover(nodeId, nodeData);
+            };
+            
+            if (typeof TimelineManager !== 'undefined') {
+                this.timelineManager = new TimelineManager(this.physics3D);
+            }
+            
+            if (typeof DestructionMode !== 'undefined') {
+                this.destructionMode = new DestructionMode(this.physics3D, this.timelineManager);
+            }
+        }
     }
     
     setupCanvas() {
@@ -204,6 +234,8 @@ class TopoVisApp {
         document.getElementById('btn-pause').addEventListener('click', () => this.togglePause());
         document.getElementById('btn-center').addEventListener('click', () => this.centerView());
         
+        document.getElementById('btn-toggle-2d-3d').addEventListener('click', () => this.toggleViewMode());
+        
         document.getElementById('toggle-labels').addEventListener('change', (e) => {
             this.showLabels = e.target.checked;
             this.render();
@@ -212,6 +244,12 @@ class TopoVisApp {
         document.getElementById('toggle-edges').addEventListener('change', (e) => {
             this.showEdges = e.target.checked;
             this.render();
+        });
+        
+        document.getElementById('toggle-physics').addEventListener('change', (e) => {
+            if (this.physics3D) {
+                this.physics3D.togglePhysics();
+            }
         });
         
         document.getElementById('btn-close-node').addEventListener('click', () => {
@@ -244,7 +282,65 @@ class TopoVisApp {
             this.runLLMAnalysis();
         });
         
+        document.getElementById('btn-mode-toggle').addEventListener('click', () => {
+            if (this.destructionMode) {
+                this.destructionMode.toggle();
+            }
+        });
+        
+        document.getElementById('btn-reset-collapse').addEventListener('click', () => {
+            if (this.destructionMode) {
+                this.destructionMode.reset();
+            }
+        });
+        
+        document.getElementById('btn-save-snapshot').addEventListener('click', () => {
+            if (this.destructionMode) {
+                this.destructionMode.saveCurrentStateToTimeline();
+            } else if (this.timelineManager) {
+                this.timelineManager.captureSnapshot();
+            }
+        });
+        
         this.setupCanvasInteractions();
+    }
+    
+    handle3DNodeClick(nodeId, nodeData) {
+        if (this.destructionMode && this.destructionMode.isEnabled) {
+            this.destructionMode.triggerCollapse(nodeId, true);
+            return;
+        }
+        
+        if (this.physics3D) {
+            this.physics3D.setSelectedNode(nodeId);
+            this.physics3D.highlightLinksForNode(nodeId);
+        }
+        
+        this.selectedNode = nodeData;
+        this.showNodeInfo(nodeData.data);
+    }
+    
+    handle3DNodeHover(nodeId, nodeData) {
+        const infoPanel = document.getElementById('node-info-3d');
+        
+        if (nodeId && nodeData) {
+            infoPanel.style.display = 'block';
+            infoPanel.innerHTML = `
+                <h4>${nodeData.id}</h4>
+                <p>社区: ${nodeData.community}</p>
+                <p>连接数: ${nodeData.degree}</p>
+            `;
+            
+            if (this.destructionMode && this.destructionMode.isEnabled) {
+                infoPanel.innerHTML += `<p style="color: #ef4444; margin-top: 8px;">💥 点击触发坍塌</p>`;
+            }
+        } else {
+            infoPanel.style.display = 'none';
+            
+            if (this.physics3D) {
+                this.physics3D.resetLinkHighlighting();
+            }
+        }
     }
     
     setupCanvasInteractions() {
@@ -364,6 +460,15 @@ class TopoVisApp {
     }
     
     zoom(factor) {
+        if (this.is3DMode && this.physics3D) {
+            if (factor > 1) {
+                this.physics3D.zoomIn();
+            } else {
+                this.physics3D.zoomOut();
+            }
+            return;
+        }
+        
         const rect = this.canvas.getBoundingClientRect();
         const centerX = rect.width / 2;
         const centerY = rect.height / 2;
@@ -371,6 +476,8 @@ class TopoVisApp {
     }
     
     zoomAt(screenX, screenY, factor) {
+        if (this.is3DMode) return;
+        
         const transform = this.getCurrentTransform();
         
         const newScale = Math.max(0.1, Math.min(10, transform.scale * factor));
@@ -389,6 +496,8 @@ class TopoVisApp {
     }
     
     pan(dx, dy) {
+        if (this.is3DMode) return;
+        
         const transform = this.getCurrentTransform();
         this.zoomTransform = {
             ...transform,
@@ -399,11 +508,21 @@ class TopoVisApp {
     }
     
     resetZoom() {
+        if (this.is3DMode && this.physics3D) {
+            this.physics3D.resetZoom();
+            return;
+        }
+        
         this.zoomTransform = { scale: 1, translateX: 0, translateY: 0 };
         this.render();
     }
     
     centerView() {
+        if (this.is3DMode && this.physics3D) {
+            this.physics3D.centerView();
+            return;
+        }
+        
         if (!this.graphData || !this.graphData.nodes || this.graphData.nodes.length === 0) {
             return;
         }
@@ -439,13 +558,34 @@ class TopoVisApp {
         this.render();
     }
     
+    toggleViewMode() {
+        this.is3DMode = !this.is3DMode;
+        
+        const btn = document.getElementById('btn-toggle-2d-3d');
+        btn.textContent = this.is3DMode ? '3D' : '2D';
+        
+        const threeContainer = document.getElementById('three-canvas-container');
+        const glCanvas = document.getElementById('gl-canvas');
+        
+        if (this.is3DMode) {
+            threeContainer.style.display = 'block';
+            glCanvas.style.display = 'none';
+        } else {
+            threeContainer.style.display = 'none';
+            glCanvas.style.display = 'block';
+            this.render();
+        }
+    }
+    
     togglePause() {
         this.isPaused = !this.isPaused;
         const btn = document.getElementById('btn-pause');
         btn.textContent = this.isPaused ? '▶️' : '⏸️';
         btn.title = this.isPaused ? '继续模拟' : '暂停模拟';
         
-        if (this.simulation) {
+        if (this.is3DMode && this.physics3D) {
+            this.physics3D.togglePause();
+        } else if (this.simulation) {
             if (this.isPaused) {
                 this.simulation.stop();
             } else {
@@ -512,6 +652,10 @@ class TopoVisApp {
             this.communityColors[node.community] = this.colorScale(node.community);
         });
         
+        if (this.is3DMode && this.physics3D) {
+            this.physics3D.setGraphData(this.graphData);
+        }
+        
         const rect = this.canvas.getBoundingClientRect();
         const centerX = rect.width / 2;
         const centerY = rect.height / 2;
@@ -572,6 +716,8 @@ class TopoVisApp {
     }
     
     render() {
+        if (this.is3DMode) return;
+        
         if (!this.gl || !this.graphData || !this.graphData.nodes) return;
         
         const gl = this.gl;
@@ -880,6 +1026,12 @@ class TopoVisApp {
         this.highlightedNodes = new Set();
         this.highlightedEdges = new Set();
         document.getElementById('node-info-panel').style.display = 'none';
+        
+        if (this.physics3D) {
+            this.physics3D.setSelectedNode(null);
+            this.physics3D.resetLinkHighlighting();
+        }
+        
         this.render();
     }
     
