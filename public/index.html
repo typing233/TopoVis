@@ -3,15 +3,247 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TopoVis - 大规模图可视化系统</title>
+    <title>TopoVis 2.0 - 3D拓扑可视化系统</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        #three-canvas-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        #three-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .timeline-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 800px;
+            background: rgba(30, 41, 59, 0.95);
+            border-radius: 12px;
+            padding: 15px 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+        }
+        
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .timeline-title {
+            color: #f8fafc;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .timeline-controls {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .timeline-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #f8fafc;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        
+        .timeline-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .timeline-btn.active {
+            background: #3b82f6;
+        }
+        
+        .timeline-track {
+            position: relative;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .timeline-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            opacity: 0.3;
+            pointer-events: none;
+        }
+        
+        .timeline-marker {
+            position: absolute;
+            top: 10px;
+            bottom: 10px;
+            width: 3px;
+            background: #fbbf24;
+            border-radius: 2px;
+            transform: translateX(-50%);
+            pointer-events: none;
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+        }
+        
+        .snapshot-point {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 16px;
+            height: 16px;
+            background: #6366f1;
+            border: 2px solid #818cf8;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        
+        .snapshot-point:hover {
+            transform: translate(-50%, -50%) scale(1.3);
+            background: #8b5cf6;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+        }
+        
+        .snapshot-point.current {
+            background: #fbbf24;
+            border-color: #f59e0b;
+        }
+        
+        .snapshot-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+        
+        .timeline-hint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #64748b;
+            font-size: 12px;
+            pointer-events: none;
+        }
+        
+        .mode-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(30, 41, 59, 0.9);
+            padding: 10px 16px;
+            border-radius: 8px;
+            color: #f8fafc;
+            font-size: 13px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .mode-indicator .mode-icon {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .mode-indicator .mode-icon.normal { background: #22c55e; }
+        .mode-indicator .mode-icon.destruction { background: #ef4444; animation: pulse 1s infinite; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .collapse-info {
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            background: rgba(239, 68, 68, 0.9);
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: white;
+            font-size: 13px;
+            z-index: 100;
+            max-width: 250px;
+        }
+        
+        .collapse-info h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+        }
+        
+        .collapse-info p {
+            margin: 4px 0;
+            font-size: 12px;
+        }
+        
+        .node-info-3d {
+            position: absolute;
+            background: rgba(30, 41, 59, 0.95);
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: #f8fafc;
+            font-size: 12px;
+            z-index: 100;
+            pointer-events: none;
+            max-width: 200px;
+        }
+        
+        .node-info-3d h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #fbbf24;
+        }
+        
+        .node-info-3d p {
+            margin: 4px 0;
+        }
+        
+        .destruction-hint {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(239, 68, 68, 0.9);
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            z-index: 100;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
         <header class="header">
-            <h1>TopoVis - 大规模图可视化系统</h1>
+            <h1>TopoVis 2.0 - 3D拓扑可视化系统</h1>
             <div class="header-controls">
+                <button id="btn-mode-toggle" class="btn btn-secondary">
+                    <span>🔄 正常模式</span>
+                </button>
                 <button id="btn-settings" class="btn btn-secondary">
                     <span>⚙️ LLM配置</span>
                 </button>
@@ -94,6 +326,31 @@
                         <div id="llm-result" class="llm-result" style="display: none;"></div>
                     </div>
                 </div>
+                
+                <div class="panel" id="destruction-panel" style="display: none;">
+                    <div class="panel-header">
+                        <h3>破坏模式</h3>
+                    </div>
+                    <div class="panel-body">
+                        <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
+                            点击3D视图中的节点触发连锁坍塌
+                        </p>
+                        <div class="stat-item">
+                            <span class="stat-label">已移除节点:</span>
+                            <span class="stat-value" id="stat-removed">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">已断开连接:</span>
+                            <span class="stat-value" id="stat-disconnected">0</span>
+                        </div>
+                        <button id="btn-reset-collapse" class="btn btn-secondary btn-block" style="margin-top: 12px;">
+                            重置网络
+                        </button>
+                        <button id="btn-save-snapshot" class="btn btn-primary btn-block" style="margin-top: 8px;">
+                            保存当前状态
+                        </button>
+                    </div>
+                </div>
             </aside>
             
             <main class="graph-container">
@@ -105,6 +362,8 @@
                         <div class="separator"></div>
                         <button id="btn-pause" class="btn btn-tool" title="暂停/继续模拟">⏸️</button>
                         <button id="btn-center" class="btn btn-tool" title="居中视图">🎯</button>
+                        <div class="separator"></div>
+                        <button id="btn-toggle-2d-3d" class="btn btn-tool" title="切换2D/3D">3D</button>
                     </div>
                     <div class="toolbar-group">
                         <label class="checkbox-label">
@@ -115,20 +374,61 @@
                             <input type="checkbox" id="toggle-edges" checked>
                             <span>显示边</span>
                         </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="toggle-physics" checked>
+                            <span>物理模拟</span>
+                        </label>
                     </div>
                 </div>
                 
                 <div class="graph-canvas" id="graph-canvas">
-                    <canvas id="gl-canvas"></canvas>
+                    <div id="three-canvas-container">
+                        <canvas id="three-canvas"></canvas>
+                    </div>
+                    <canvas id="gl-canvas" style="display: none;"></canvas>
                     <svg id="overlay-svg" class="overlay-svg"></svg>
+                    
+                    <div id="mode-indicator" class="mode-indicator" style="display: none;">
+                        <div class="mode-icon normal" id="mode-icon"></div>
+                        <span id="mode-text">正常模式</span>
+                    </div>
+                    
+                    <div id="collapse-info" class="collapse-info" style="display: none;">
+                        <h4>连锁坍塌中...</h4>
+                        <p id="collapse-count">已影响: 0 个节点</p>
+                        <p id="collapse-depth">坍塌深度: 0</p>
+                    </div>
+                    
+                    <div id="node-info-3d" class="node-info-3d" style="display: none;"></div>
+                    
+                    <div id="destruction-hint" class="destruction-hint" style="display: none;">
+                        🎯 破坏模式已激活 - 点击节点观察连锁坍塌
+                    </div>
+                    
                     <div id="loading-overlay" class="loading-overlay" style="display: none;">
                         <div class="loading-spinner"></div>
                         <p>正在处理数据...</p>
                     </div>
                     <div id="welcome-message" class="welcome-message">
-                        <h2>欢迎使用 TopoVis</h2>
-                        <p>请上传图数据文件开始探索</p>
+                        <h2>欢迎使用 TopoVis 2.0</h2>
+                        <p>3D物理沙盒 • 时间轴回放 • 破坏模式</p>
                         <p class="hint">支持 CSV (source, target) 和 JSON 格式</p>
+                    </div>
+                </div>
+                
+                <div id="timeline-container" class="timeline-container" style="display: none;">
+                    <div class="timeline-header">
+                        <span class="timeline-title">⏱️ 时间轴 - 滚轮滚动回放</span>
+                        <div class="timeline-controls">
+                            <button id="btn-timeline-record" class="timeline-btn">📹 录制</button>
+                            <button id="btn-timeline-play" class="timeline-btn">▶️ 播放</button>
+                            <button id="btn-timeline-clear" class="timeline-btn">🗑️ 清空</button>
+                        </div>
+                    </div>
+                    <div class="timeline-track" id="timeline-track">
+                        <div class="timeline-progress" id="timeline-progress" style="width: 0%;"></div>
+                        <div class="timeline-marker" id="timeline-marker" style="left: 0%;"></div>
+                        <div class="timeline-hint" id="timeline-hint">暂无快照 - 点击"录制"开始记录</div>
                     </div>
                 </div>
             </main>
@@ -166,6 +466,9 @@
         </div>
     </div>
     
+    <script src="js/physics3d.js"></script>
+    <script src="js/timeline.js"></script>
+    <script src="js/destruction.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
